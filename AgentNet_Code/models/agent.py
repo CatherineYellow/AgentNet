@@ -37,7 +37,7 @@ class Agent:
         """调用 OpenAI API 处理任务"""
         try:
             # 设置 API 密钥
-            openai.api_key = "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" ## api key for this project
+            openai.api_key = "REMOVED_USE_LOCAL_VLLM" ## api key for this project
 
             response = openai.ChatCompletion.create(
                 model="gpt-4o-mini",  # Chat model

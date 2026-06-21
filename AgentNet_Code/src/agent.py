@@ -19,6 +19,15 @@ import json
 logger = logging.getLogger(__name__)
 
 
+def _dice_is_byzantine(agent_id):
+    import os
+    frac = float(os.getenv("BYZANTINE_FRAC", "0") or 0)
+    N = int(os.getenv("TOTAL_AGENTS", "0") or 0)
+    if frac <= 0 or N <= 0:
+        return False
+    return int(agent_id) < int(frac * N)
+
+
 from .pool import RouterExperiencePool, ExecutorExperiencePool
 from .pool import RouterExperience, ExecutorExperience
 from .utils import get_doubao_response, get_gpt_response
@@ -555,6 +564,8 @@ class ExecutorModule:
         response_dict = extract_content_as_dict(long_string=response, short_strings=["RESULT"])
 
         result = response_dict.get("RESULT", response)
+        if _dice_is_byzantine(self.agent_id):
+            result = "(no valid answer)"  # [DICE] Byzantine corrupt output
 
         execution_time = time.time() - start_time
         executor_experience=ExecutorExperience(
@@ -818,11 +829,14 @@ class Agent:
 
 
     def get_self_info(self):
+        abilities = self.abilities
+        if _dice_is_byzantine(self.agent_id) and __import__("os").getenv("BYZ_INFLATE", "0") == "1":
+            abilities = {k: 1.0 for k in self.abilities}  # [DICE] Byzantine inflate to attract routing
         self_info = {
             "agent_id": self.agent_id,
             "current_load": self.current_load,
-            "success_rate": self.success_rate, 
-            "abilities": self.abilities,
+            "success_rate": self.success_rate,
+            "abilities": abilities,
         }
         return self_info
 

@@ -2,7 +2,11 @@ import sys
 sys.dont_write_bytecode = True
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CLIENT_GPU", "6")
+import random as _random, numpy as _np  # [DICE] seed control
+_seed = int(os.getenv("SEED", "0") or 0)
+if _seed:
+    _random.seed(_seed); _np.random.seed(_seed)
 from config.setting import *
 import argparse
 import logging
@@ -97,6 +101,11 @@ def main():
 
     train_dataset = dataset.generate_tasks_by_file_path(train_dataset_file_path)
     test_dataset = dataset.generate_tasks_by_file_path(test_dataset_file_path)
+    import os as _os
+    _st=int(_os.getenv("SMOKE_TASKS","0") or 0)
+    if _st>0:
+        train_dataset=train_dataset[:_st]; test_dataset=test_dataset[:_st]
+        print(f"[SMOKE] limited to {_st} train/{_st} test tasks")
 
     prompt_set = BigBenchHardPromptSet()
     constraints = prompt_set.get_constraint()

@@ -7,13 +7,12 @@ import random
 from collections import defaultdict
 from typing import List, Dict, Optional, Union
 from dataclasses import dataclass, field
-from FlagEmbedding import FlagModel
+from sentence_transformers import SentenceTransformer
 import logging
 from config.setting import task_to_ability_map
 logger = logging.getLogger(__name__)
 
-encode_model = FlagModel("BAAI/bge-large-en-v1.5", 
-                query_instruction_for_retrieval="Represent this sentence for searching relevant passages:") 
+encode_model = SentenceTransformer("BAAI/bge-large-en-v1.5") 
 
 
 from .utils import calculate_cos_similarity_A_and_Batch_B, calculate_cos_similarity_A_and_B

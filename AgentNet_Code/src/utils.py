@@ -57,33 +57,30 @@ def get_doubao_response(system_prompt, query_prompt):
 
 
 def get_gpt_response(system_prompt, query_prompt):
+    """[DICE patch] Call a local vLLM OpenAI-compatible server instead of OpenAI."""
+    import os
+    from openai import OpenAI
+    base_url = os.getenv("LOCAL_LLM_BASE_URL", "http://localhost:8000/v1")
+    model = os.getenv("LOCAL_LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+    client = OpenAI(base_url=base_url, api_key="EMPTY")
     for attempt in range(MAX_RETRIES):
         try:
-            import openai  
-            openai.api_key = OPENAI_API_KEY
-
-            response = openai.ChatCompletion.create(
-                model="gpt-4o-mini",
+            response = client.chat.completions.create(
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query_prompt}
+                    {"role": "user", "content": query_prompt},
                 ],
                 temperature=0.0,
-                max_tokens = 2048,
+                max_tokens=2048,
                 top_p=1.0,
             )
-            generated_text = response.choices[0].message['content'].strip()
-
-            break
+            return response.choices[0].message.content.strip()
         except Exception as e:
-            print(f"API call attempt {attempt + 1} failed: {e}")
-            if attempt == MAX_RETRIES-1:
+            print(f"[local-llm] attempt {attempt+1} failed: {e}")
+            if attempt == MAX_RETRIES - 1:
                 raise
-            time.sleep(1) # wait before retry
-
-    return generated_text
-
-
+            time.sleep(1)
 
 
 def get_qwen_response(system_prompt, query_prompt,

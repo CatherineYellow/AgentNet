@@ -72,62 +72,51 @@ class AgentGraph:
 
 
     def select_an_agent(self, task_type):
-        outcoming_agents_id = self.agents.keys()      
-        logging.info(f"outcoming_agents_id = {outcoming_agents_id}") 
+        import os as _os
+        robust = _os.getenv("ROBUST", "0") == "1"
         neighbors_info = {}
-        
-        for agent_id in outcoming_agents_id:
+        for agent_id in self.agents.keys():
             agent = self.agents[agent_id]
-            
-            agent_info = agent.get_self_info()  
+            agent_info = agent.get_self_info()
             success_rate = agent_info["success_rate"]
             abilities = agent_info["abilities"]
-
             if task_type not in success_rate:
                 continue
-        
             ability_names = task_to_ability_map[task_type]
             total_value, ability_num = 0, 0
             for name in ability_names:
                 ability_num += 1
                 total_value += abilities[name]
             average_ability_value = total_value / ability_num
-
+            # [DICE] robust: rank by demonstrated success (reputation), not self-claimed ability
+            rank_value = success_rate.get(task_type, 0.0) if robust else average_ability_value
             neighbors_info[agent_id] = {
                 "agent_info": agent_info,
-                "average_ability_value": average_ability_value
+                "average_ability_value": average_ability_value,
+                "rank_value": rank_value,
             }
-            logging.info(f"neighbors_info[agent_id]: {agent_id}, agent_info: {agent_info}, average_ability_value: {average_ability_value}")
-
         if not neighbors_info:
-            logging.info(f"No suitable agent found to execute task {task_type}, randomly selecting an agent")
             return self.sample_an_agent()
-            
-        # Get all maximum average_ability_values
-        max_value = max(neighbors_info[agent_id]["average_ability_value"] for agent_id in neighbors_info)
-        
-        # Filter out all agents with maximum value
-        best_agents = [agent_id for agent_id, info in neighbors_info.items() if info["average_ability_value"] == max_value]
-        
-        # If there are multiple agents, randomly select one
-        best_agent_id = random.choice(best_agents)
-
-        logging.info(f"Selected agent {best_agent_id} to execute task {task_type}, average ability value: {neighbors_info[best_agent_id]['average_ability_value']}")
-        
-        return best_agent_id
-
-
+        max_value = max(info["rank_value"] for info in neighbors_info.values())
+        best_agents = [aid for aid, info in neighbors_info.items() if info["rank_value"] == max_value]
+        return random.choice(best_agents)
 
     def collect_neighbors_info(self, agent_id, task):
+        import os
         outcoming_neighbors_id  = self.agent_neighbor_dict[agent_id]["outcoming_agent_id"]
+        ids = [nid for nid in outcoming_neighbors_id if self.edge_weight[agent_id][nid] > 0.3]
+        # [DICE] route-to-field (R2): cheap ability-rank, keep top-K, THEN build full info only for those K
+        if os.getenv("ROUTE_MODE", "graph") == "field" and ids:
+            K = int(os.getenv("FIELD_K", "4"))
+            names = task_to_ability_map.get(task.task_type, [])
+            def _ab(nid):
+                ab = self.agents[nid].get_self_info()["abilities"]
+                return (sum(ab[n] for n in names) / len(names)) if names else 0.0
+            ids = sorted(ids, key=_ab, reverse=True)[:K]
         neighbors_info = {}
-        for neighbor_id in outcoming_neighbors_id:
-            if self.edge_weight[agent_id][neighbor_id] <= 0.3:
-                # If edge weight is too low, discard this edge and no longer accept it when passing Agent neighbor information
-                continue
+        for neighbor_id in ids:
             neighbor_agent = self.agents[neighbor_id]
             neighbor_agent_info = neighbor_agent.get_self_info()
-
             neighbor_agent_info["processed_tasks"] = neighbor_agent.get_relevant_experence(task)
             neighbor_agent_info["success_rate"] = neighbor_agent_info["success_rate"]
             neighbor_agent_info["task_type_success_rate"] = neighbor_agent_info["success_rate"][task.task_type]
@@ -135,7 +124,6 @@ class AgentGraph:
             neighbor_agent_info["is_outgoing"] = True
             neighbors_info[neighbor_id]= neighbor_agent_info
         return neighbors_info
-
 
     def update_edge_weight(self, source_agent_id, target_agent_id, execution_time, success):
         

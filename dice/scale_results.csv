@@ -1,0 +1,6 @@
+mode,N,train_acc,max_agents_in_prompt,seconds
+field,50,0.55,6,316
+field,100,0.7,5,371
+field,200,0.65,5,386
+graph,50,FAIL(rc=1),0,18
+graph,100,FAIL(rc=1),0,16

@@ -1,0 +1,7 @@
+mode,N,train_acc
+graph,5,0.75
+graph,10,0.65
+graph,20,0.55
+field,5,0.65
+field,10,0.65
+field,20,0.65
