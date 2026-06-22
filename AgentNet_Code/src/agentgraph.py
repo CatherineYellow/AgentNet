@@ -102,17 +102,20 @@ class AgentGraph:
         return random.choice(best_agents)
 
     def collect_neighbors_info(self, agent_id, task):
-        import os
+        import os, random as _random
         outcoming_neighbors_id  = self.agent_neighbor_dict[agent_id]["outcoming_agent_id"]
         ids = [nid for nid in outcoming_neighbors_id if self.edge_weight[agent_id][nid] > 0.3]
-        # [DICE] route-to-field (R2): cheap ability-rank, keep top-K, THEN build full info only for those K
-        if os.getenv("ROUTE_MODE", "graph") == "field" and ids:
+        mode = os.getenv("ROUTE_MODE", "graph")
+        if mode in ("field", "sparse") and ids:
             K = int(os.getenv("FIELD_K", "4"))
-            names = task_to_ability_map.get(task.task_type, [])
-            def _ab(nid):
-                ab = self.agents[nid].get_self_info()["abilities"]
-                return (sum(ab[n] for n in names) / len(names)) if names else 0.0
-            ids = sorted(ids, key=_ab, reverse=True)[:K]
+            if mode == "field":
+                names = task_to_ability_map.get(task.task_type, [])
+                def _ab(nid):
+                    ab = self.agents[nid].get_self_info()["abilities"]
+                    return (sum(ab[n] for n in names) / len(names)) if names else 0.0
+                ids = sorted(ids, key=_ab, reverse=True)[:K]      # mean-field: top-K by task-type ability
+            else:
+                ids = _random.sample(ids, min(K, len(ids)))       # sparse: K random neighbors (local graph)
         neighbors_info = {}
         for neighbor_id in ids:
             neighbor_agent = self.agents[neighbor_id]
