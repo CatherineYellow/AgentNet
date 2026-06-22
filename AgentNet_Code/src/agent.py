@@ -433,36 +433,36 @@ class RouterModule:
 
 
     def find_best_alternative_agent(self, task_type, neighbors_info):
+        import os
+        robust = os.getenv("ROBUST", "0") == "1"
         candidates = []
         for agent_id, info in neighbors_info.items():
-            if agent_id != self.agent_id:
-                if not (info['is_incoming'] or info['is_outgoing']):
-                    continue  
-    
-                ability = get_average_abilities_from_task_type(task_type, info['abilities'])
-                load = info['current_load']
-                success_rate = info['success_rate'][task_type]
-                
+            if agent_id == self.agent_id:
+                continue
+            if not (info['is_incoming'] or info['is_outgoing']):
+                continue
+            ability = get_average_abilities_from_task_type(task_type, info['abilities'])
+            load = info['current_load']
+            success_rate = info['success_rate'][task_type]
+            if robust:
+                # [DICE] reputation-based forwarding: ignore self-claimed ability (defeats inflation)
+                if load < 3:
+                    candidates.append((success_rate * 0.8 + (1 - load / 3) * 0.2, agent_id))
+            else:
                 score = (
-                    ability * 0.4 + 
-                    (1 - load/3) * 0.3 +  
-                    success_rate * 0.2 + 
-                    (1.0 if info['is_outgoing'] else 0.5) * 0.1 
+                    ability * 0.4 +
+                    (1 - load / 3) * 0.3 +
+                    success_rate * 0.2 +
+                    (1.0 if info['is_outgoing'] else 0.5) * 0.1
                 )
-                
-                if ability >= 0.5 and load < 3:  
+                if ability >= 0.5 and load < 3:
                     candidates.append((score, agent_id))
-        
         if candidates:
             candidates.sort(reverse=True)
             return candidates[0][1]
         else:
-            logger.warning(f"No suitable agent found for task type {task_type}")
-            logger.info("We are going to choose a random agent from the neighbors")
             candidates = [agent_id for agent_id in neighbors_info.keys() if agent_id != self.agent_id]
-            logger.info(f"The neighbors are {candidates}")
             if not candidates:
-                logger.warning(f"No neighbors found for agent {self.agent_id}")
                 return None
             return random.choice(candidates)
 
