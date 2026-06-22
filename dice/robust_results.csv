@@ -1,0 +1,11 @@
+defense,byz_frac,train_acc,seconds
+naive,0,0.6,566
+naive,0.1,0.0,538
+naive,0.2,0.0,536
+naive,0.33,0.0,547
+naive,0.5,0.0,534
+robust,0,0.675,560
+robust,0.1,0.625,556
+robust,0.2,0.575,553
+robust,0.33,0.6,556
+robust,0.5,0.55,563
