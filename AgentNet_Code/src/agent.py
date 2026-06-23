@@ -19,13 +19,19 @@ import json
 logger = logging.getLogger(__name__)
 
 
+_DICE_BYZ_SET = None
+def _dice_byz_set():
+    global _DICE_BYZ_SET
+    if _DICE_BYZ_SET is None:
+        import os, random as _r
+        frac = float(os.getenv("BYZANTINE_FRAC", "0") or 0)
+        N = int(os.getenv("TOTAL_AGENTS", "0") or 0)
+        seed = int(os.getenv("SEED", "0") or 0)
+        k = int(frac * N)
+        _DICE_BYZ_SET = set(_r.Random(seed).sample(range(N), k)) if (frac > 0 and N > 0 and k > 0) else set()
+    return _DICE_BYZ_SET
 def _dice_is_byzantine(agent_id):
-    import os
-    frac = float(os.getenv("BYZANTINE_FRAC", "0") or 0)
-    N = int(os.getenv("TOTAL_AGENTS", "0") or 0)
-    if frac <= 0 or N <= 0:
-        return False
-    return int(agent_id) < int(frac * N)
+    return int(agent_id) in _dice_byz_set()
 
 
 from .pool import RouterExperiencePool, ExecutorExperiencePool
@@ -458,7 +464,9 @@ class RouterModule:
                 if ability >= 0.5 and load < 3:
                     candidates.append((score, agent_id))
         if candidates:
-            candidates.sort(reverse=True)
+            import random as _rtb
+            _rtb.shuffle(candidates)
+            candidates.sort(key=lambda x: x[0], reverse=True)
             return candidates[0][1]
         else:
             candidates = [agent_id for agent_id in neighbors_info.keys() if agent_id != self.agent_id]

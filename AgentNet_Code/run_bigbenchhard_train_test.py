@@ -104,8 +104,12 @@ def main():
     import os as _os
     _st=int(_os.getenv("SMOKE_TASKS","0") or 0)
     if _st>0:
-        train_dataset=train_dataset[:_st]; test_dataset=test_dataset[:_st]
-        print(f"[SMOKE] limited to {_st} train/{_st} test tasks")
+        import random as _rsub
+        _sd=int(_os.getenv("SEED","0") or 0)
+        _itr=sorted(_rsub.Random(_sd).sample(range(len(train_dataset)), min(_st,len(train_dataset))))
+        _ite=sorted(_rsub.Random(1000+_sd).sample(range(len(test_dataset)), min(_st,len(test_dataset))))
+        train_dataset=[train_dataset[i] for i in _itr]; test_dataset=[test_dataset[i] for i in _ite]
+        print(f"[SMOKE] random subset {_st} train/{_st} test (seed {_sd})")
 
     prompt_set = BigBenchHardPromptSet()
     constraints = prompt_set.get_constraint()

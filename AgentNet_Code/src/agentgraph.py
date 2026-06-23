@@ -108,14 +108,19 @@ class AgentGraph:
         mode = os.getenv("ROUTE_MODE", "graph")
         if mode in ("field", "sparse") and ids:
             K = int(os.getenv("FIELD_K", "4"))
+            _random.shuffle(ids)                                  # random tie-break
             if mode == "field":
+                robust = os.getenv("ROBUST", "0") == "1"
                 names = task_to_ability_map.get(task.task_type, [])
-                def _ab(nid):
-                    ab = self.agents[nid].get_self_info()["abilities"]
+                def _key(nid):
+                    info = self.agents[nid].get_self_info()
+                    if robust:
+                        return info["success_rate"].get(task.task_type, 0.0)   # clean robust: prefilter by reputation
+                    ab = info["abilities"]
                     return (sum(ab[n] for n in names) / len(names)) if names else 0.0
-                ids = sorted(ids, key=_ab, reverse=True)[:K]      # mean-field: top-K by task-type ability
+                ids = sorted(ids, key=_key, reverse=True)[:K]
             else:
-                ids = _random.sample(ids, min(K, len(ids)))       # sparse: K random neighbors (local graph)
+                ids = _random.sample(ids, min(K, len(ids)))
         neighbors_info = {}
         for neighbor_id in ids:
             neighbor_agent = self.agents[neighbor_id]
