@@ -348,6 +348,7 @@ class Experiment:
             final_task_chain = self.solve_a_single_task(task)
             result = self.evaluate_task_result(final_task_chain, task.correct_answer, "Train")
             self.update_agent_graph(final_task_chain, result)
+            __import__("src.agent", fromlist=["x"])._dice_bump_task()
 
     def evaluate(self):
         logger.info("Experiment Start in Test Dataset with the same task type as train dataset !")

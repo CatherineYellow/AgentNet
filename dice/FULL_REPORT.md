@@ -184,6 +184,21 @@ DARPA **DICE**（去中心化 AI / 受控涌现）押一个赌注：未来要协
 
 **结论**：换 held-out 测试 + 修干净后，两个 solid 定性结论不变（graph 崩 vs bound 扩展；robust>0 vs naive=0），但**鲁棒的定量幅度从"完全挡住"下调为"防止完全崩溃、随 φ 降级"**。§7.8/§7.1/§7.caveat 均已解决。
 
+## 5.6 消融 + 延迟发作攻击（#4，2026-06-23，`abl.sh`/`patch_phase4.py`）
+
+**K 消融**（field，N=100，无拜占庭，held-out TEST，2-seed 均值）：
+| K | 1 | 2 | 4 | 8 |
+|---|---|---|---|---|
+| test | 0.65 | 0.62 | 0.65 | 0.58 |
+→ **无明显趋势，连 K=1（每 agent 只看 1 个邻居）都和 K=8 一样好**。bound 的"大小"几乎不影响准确率，可砍到极小、更省——再次印证"bound 本身才是关键"。
+
+**延迟发作拜占庭**（field，N=20，虚报，φ=0.33；坏 agent 前 15 个任务正常干、攒够信誉后叛变；held-out TEST，2-seed 均值）：
+| defense | 立即发作 | 延迟发作 |
+|---|---|---|
+| naive | 0.0 | 0.0 |
+| robust | 0.52 | **0.42** |
+→ **信誉路由可被"先取信后背叛"部分 game**：robust 在延迟攻击下(0.42)比立即(0.52)更差——坏 agent 攒够信誉再叛变，robust 仍把任务派给它。但仍 >naive(0.0)（叛变后信誉下降、robust 终会绕开，故只是**部分**被 game）。**证实 codex 批评：基于 ground-truth 的即时信誉不足以防延迟发作。**
+
 ## 6. 代码审计（我自查）
 对所有补丁逐函数审计，**没有破坏正确性的硬 bug**（select_an_agent/collect_neighbors_info/find_best_alternative_agent/get_self_info/executor 注入/seed/smoke 都按预期工作）。但发现若干**方法学/实现 caveat**（见下，与 codex 评审合并）。
 
@@ -222,13 +237,14 @@ DARPA **DICE**（去中心化 AI / 受控涌现）押一个赌注：未来要协
 - 去噪只覆盖路由随机性，未覆盖任务子集方差。
 - 结论分级：**只有"崩/全崩"这种大效应是 solid，其余定量数字是方向性的。**
 
-## 9. 下一步（codex 建议 + 我的，按优先级）
-1. **改用 held-out 测试集重报所有准确率**（取 `evaluate()` 的 test acc，不取 train）——最快、最该做，修正 §7.8。
-2. **去噪做扎实**：10–20 个**任务子集** seed + bootstrap CI，判断 field vs sparse 是否真有统计差异（§7.10）。
-3. **修干净 robust + 公平化拜占庭**：field 邻居预筛也按信誉；随机化拜占庭 id 与 tie-break；记录 fallback/拜占庭被选中率（§7.1,2,5）。
-4. **K / 候选集 消融**：K={1,2,4,8,16,all} × {能力top-K, 信誉top-K, 随机K, 固定稀疏图}，测准确率、每 prompt token、LLM 调用数。
-5. **更强拜占庭套件**：只输出错答案 / 只虚报 / 虚报+谎报信誉 / 延迟发作 / 恶意转发 / 经验池投毒 / 合谋；对比 trimmed/median 聚合、噪声信誉、探索式路由。
-6. **真·平均场实验**（支撑 DICE 主张的关键）：上 GovSim/资源采集，扫 N，记序参量(均值动作/资源量)，测 N^(−1/2) 方差收敛、估级联阈值 φ_c——这才对接师兄的极限方程。
+## 9. 下一步（状态更新 2026-06-23）
+1. ✅ **held-out 测试集重报**（§5.5）。
+2. 🟡 **去噪**：已做随机任务子集 + 2–3 seed（§5.5/5.6）；完整 10–20 seed + bootstrap CI 仍可加。
+3. ✅ **修干净 robust + 公平化拜占庭**（§5.5，`patch_fixes.py`）。
+4. ✅ **K 消融 + 延迟发作攻击**（§5.6，`patch_phase4.py`）。
+5. 🟡 **更强拜占庭套件**：已加延迟发作；剩 谎报信誉 / 恶意转发 / 经验池投毒 / 合谋 / trimmed-median 聚合。
+6. ⏳ **真·平均场实验（GovSim，支撑 DICE 主张的关键，最大工程）**：扫 N，记序参量、测 N^(−1/2) 方差收敛、估级联阈值 φ_c——对接师兄极限方程。**这是当前最大的剩余缺口。**
+- 小项：fallback 频率日志、graph parity 核对。
 
 ## 10. 文件 / 复现
 - **代码+结果**：fork `github.com/CatherineYellow/AgentNet`，`dice/` 文件夹（补丁 `patch_*.py`、脚本 `*.sh`、结果 `*_results.csv`、`RESULTS.md`）。最新 commit 见 a1ac49b 系列。

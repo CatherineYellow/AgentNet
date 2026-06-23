@@ -32,6 +32,12 @@ def _dice_byz_set():
     return _DICE_BYZ_SET
 def _dice_is_byzantine(agent_id):
     return int(agent_id) in _dice_byz_set()
+_DICE_TASK_IDX = [0]
+def _dice_bump_task():
+    _DICE_TASK_IDX[0] += 1
+def _dice_byz_now(agent_id):
+    import os
+    return _dice_is_byzantine(agent_id) and _DICE_TASK_IDX[0] >= int(os.getenv("BYZ_DELAY", "0") or 0)
 
 
 from .pool import RouterExperiencePool, ExecutorExperiencePool
@@ -572,8 +578,8 @@ class ExecutorModule:
         response_dict = extract_content_as_dict(long_string=response, short_strings=["RESULT"])
 
         result = response_dict.get("RESULT", response)
-        if _dice_is_byzantine(self.agent_id):
-            result = "(no valid answer)"  # [DICE] Byzantine corrupt output
+        if _dice_byz_now(self.agent_id):
+            result = "(no valid answer)"  # [DICE] Byzantine corrupt output (delay-aware)
 
         execution_time = time.time() - start_time
         executor_experience=ExecutorExperience(
@@ -838,7 +844,7 @@ class Agent:
 
     def get_self_info(self):
         abilities = self.abilities
-        if _dice_is_byzantine(self.agent_id) and __import__("os").getenv("BYZ_INFLATE", "0") == "1":
+        if _dice_byz_now(self.agent_id) and __import__("os").getenv("BYZ_INFLATE", "0") == "1":
             abilities = {k: 1.0 for k in self.abilities}  # [DICE] Byzantine inflate to attract routing
         self_info = {
             "agent_id": self.agent_id,

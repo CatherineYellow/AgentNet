@@ -1,0 +1,9 @@
+defense,onset,seed,test_acc,seconds
+naive,immediate,1,0.0,411
+naive,delayed,1,0.0,434
+robust,immediate,1,0.4666666666666667,424
+robust,delayed,1,0.3333333333333333,434
+naive,immediate,2,0.0,402
+naive,delayed,2,0.0,415
+robust,immediate,2,0.5666666666666667,414
+robust,delayed,2,0.5,415
