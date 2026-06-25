@@ -300,6 +300,8 @@ class Experiment:
                     single_task_history.task.complexity, 
                     single_task_history.execution_time,
                     success)
+                from src.bp_queue import bp_update  # [DICE] backpressure queue update
+                bp_update(single_task_history.current_agent_id, single_task_history.task.task_type, success)
 
             single_task_history_save = {
                 "mode": copy.deepcopy(single_task_history.mode),

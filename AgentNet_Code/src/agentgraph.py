@@ -80,7 +80,7 @@ class AgentGraph:
             agent_info = agent.get_self_info()
             success_rate = agent_info["success_rate"]
             abilities = agent_info["abilities"]
-            if task_type not in success_rate:
+            if task_type not in success_rate and __import__("os").getenv("ROUTE_MODE","graph") != "backpressure":
                 continue
             ability_names = task_to_ability_map[task_type]
             total_value, ability_num = 0, 0
@@ -88,8 +88,12 @@ class AgentGraph:
                 ability_num += 1
                 total_value += abilities[name]
             average_ability_value = total_value / ability_num
-            # [DICE] robust: rank by demonstrated success (reputation), not self-claimed ability
-            rank_value = success_rate.get(task_type, 0.0) if robust else average_ability_value
+            # [DICE] robust: rank by reputation; backpressure: rank by -backlog (min queue)
+            if __import__("os").getenv("ROUTE_MODE","graph") == "backpressure":
+                from src.bp_queue import bp_total
+                rank_value = -bp_total(agent_id, ability_names)
+            else:
+                rank_value = success_rate.get(task_type, 0.0) if robust else average_ability_value
             neighbors_info[agent_id] = {
                 "agent_info": agent_info,
                 "average_ability_value": average_ability_value,
@@ -106,7 +110,13 @@ class AgentGraph:
         outcoming_neighbors_id  = self.agent_neighbor_dict[agent_id]["outcoming_agent_id"]
         ids = [nid for nid in outcoming_neighbors_id if self.edge_weight[agent_id][nid] > 0.3]
         mode = os.getenv("ROUTE_MODE", "graph")
-        if mode in ("field", "sparse") and ids:
+        if mode == "backpressure" and ids:
+            K = int(os.getenv("FIELD_K", "4"))
+            from src.bp_queue import bp_total
+            _bp_names = task_to_ability_map.get(task.task_type, [])
+            _random.shuffle(ids)                                  # random tie-break
+            ids = sorted(ids, key=lambda nid: bp_total(nid, _bp_names))[:K]   # K LOWEST backlog
+        elif mode in ("field", "sparse") and ids:
             K = int(os.getenv("FIELD_K", "4"))
             _random.shuffle(ids)                                  # random tie-break
             if mode == "field":

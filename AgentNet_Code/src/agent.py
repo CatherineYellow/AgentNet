@@ -447,6 +447,11 @@ class RouterModule:
     def find_best_alternative_agent(self, task_type, neighbors_info):
         import os
         robust = os.getenv("ROBUST", "0") == "1"
+        _bp_mode = os.getenv("ROUTE_MODE", "graph") == "backpressure"
+        if _bp_mode:
+            from src.bp_queue import bp_total
+            _bp_names = task_to_ability_map.get(task_type, [])
+            _bp_self = bp_total(self.agent_id, _bp_names)
         candidates = []
         for agent_id, info in neighbors_info.items():
             if agent_id == self.agent_id:
@@ -456,7 +461,11 @@ class RouterModule:
             ability = get_average_abilities_from_task_type(task_type, info['abilities'])
             load = info['current_load']
             success_rate = info['success_rate'][task_type]
-            if robust:
+            if _bp_mode:
+                # [DICE] backpressure: prefer neighbor with lowest backlog (max positive differential)
+                if load < 3:
+                    candidates.append((max(0, _bp_self - bp_total(agent_id, _bp_names)), agent_id))
+            elif robust:
                 # [DICE] reputation-based forwarding: ignore self-claimed ability (defeats inflation)
                 if load < 3:
                     candidates.append((success_rate * 0.8 + (1 - load / 3) * 0.2, agent_id))

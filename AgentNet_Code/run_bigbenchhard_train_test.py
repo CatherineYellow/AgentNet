@@ -127,7 +127,9 @@ def main():
                             json_file_path_experience=json_file_path_experience,
                             constraints = constraints, 
                             thought_constraints = thought_constraints)
+    from src.bp_queue import bp_stats  # [DICE] backpressure warm-up diagnostic
     experiment.fit()
+    print(f"[BPSTATS] after fit: {bp_stats()}", flush=True)
     experiment.evaluate()
 
     return 0
